@@ -23,7 +23,7 @@ class CAM(nn.Module):
         self.mlp = nn.Sequential(
             Flatten(),  # (b x c)
             nn.Linear(in_channels, in_channels //
-                      reduction_ratio),  # (b x (c/r))
+                    reduction_ratio),  # (b x (c/r))
             nn.Dropout(0.5),
             nn.ReLU(inplace=True),  # (b x (c/r))
             nn.Linear(in_channels // reduction_ratio, in_channels),  # (b x c)
@@ -97,7 +97,7 @@ class CBAM(nn.Module):
 # output sẽ là một refined feature map
 class ConvLayer(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=1, stride=1,
-                 padding=0, dilation=1, groups=1, relu=True, bn=True, bias=False):
+                padding=0, dilation=1, groups=1, relu=True, bn=True, bias=False):
         super(ConvLayer, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
         self.bn = nn.BatchNorm2d(out_channels, affine=True, momentum=0.99, eps=1e-3) if bn else None
@@ -142,7 +142,7 @@ class SeparableConv2d(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=1, stride=1, padding=0, dilation=1, bias=False):
         super(SeparableConv2d, self).__init__()
         self.depthwise = nn.Conv2d(in_channels, in_channels, kernel_size, stride=1, padding=padding, dilation=dilation, groups=in_channels,
-                                   bias=bias)
+                                bias=bias)
         self.bnd = nn.BatchNorm2d(in_channels, affine=True)
         self.relu = nn.ReLU(inplace=True)
         self.pointwise = nn.Conv2d(in_channels, out_channels, 1, stride, 0, 1, 1, bias=bias)
@@ -378,12 +378,12 @@ class ResNet(nn.Module):
         self.groups = groups
         self.base_width = width_per_group
 
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=3, stride=1, padding=1,bias=False)
+        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=3, stride=1, padding=1,bias=False) 
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
+        self.layer1 = self._make_layer(block, 64, layers[0]) # botte, 64, 3
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2,  
                                        dilate=replace_stride_with_dilation[0])
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
                                        dilate=replace_stride_with_dilation[1])
@@ -417,7 +417,7 @@ class ResNet(nn.Module):
         # so that the residual branch starts with zeros, and each residual block behaves like an identity.
         # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
 
-    def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
+    def _make_layer(self, block, planes, blocks, stride=1, dilate=False): # Botte, 64
         norm_layer = self._norm_layer
         downsample = None
         previous_dilation = self.dilation
@@ -446,6 +446,7 @@ class ResNet(nn.Module):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
+        print(x.size())
 
         x = self.layer1(x)
         out1 = x
@@ -526,40 +527,40 @@ if __name__ == '__main__':
     model = resnet50(pretrained=False)
 
     
-    conv1_params = sum(p.numel() for p in model.conv1.parameters())
-    bn1_params = sum(p.numel() for p in model.bn1.parameters())
-    layer1_params = sum(p.numel() for p in model.layer1.parameters())
-    cbam1_params = sum(p.numel() for p in model.cbam1.parameters())
-    block1_params = sum(p.numel() for p in model.block1_fgw.parameters())
-    last_conv_params = sum(p.numel() for p in model.last_conv.parameters())
-    avgp_params = sum(p.numel() for p in model.avgp.parameters())
-    branch1_params = conv1_params+bn1_params+layer1_params+cbam1_params+block1_params+avgp_params+last_conv_params
+    # conv1_params = sum(p.numel() for p in model.conv1.parameters())
+    # bn1_params = sum(p.numel() for p in model.bn1.parameters())
+    # layer1_params = sum(p.numel() for p in model.layer1.parameters())
+    # cbam1_params = sum(p.numel() for p in model.cbam1.parameters())
+    # block1_params = sum(p.numel() for p in model.block1_fgw.parameters())
+    # last_conv_params = sum(p.numel() for p in model.last_conv.parameters())
+    # avgp_params = sum(p.numel() for p in model.avgp.parameters())
+    # branch1_params = conv1_params+bn1_params+layer1_params+cbam1_params+block1_params+avgp_params+last_conv_params
     
 
-    layer2_params = sum(p.numel() for p in model.layer2.parameters())
-    cbam2_params = sum(p.numel() for p in model.cbam2.parameters())
-    block2_params = sum(p.numel() for p in model.block2_fgw.parameters())
-    branch2_params = layer2_params+cbam2_params+block2_params+conv1_params+bn1_params+layer1_params+avgp_params+last_conv_params
+    # layer2_params = sum(p.numel() for p in model.layer2.parameters())
+    # cbam2_params = sum(p.numel() for p in model.cbam2.parameters())
+    # block2_params = sum(p.numel() for p in model.block2_fgw.parameters())
+    # branch2_params = layer2_params+cbam2_params+block2_params+conv1_params+bn1_params+layer1_params+avgp_params+last_conv_params
 
 
-    layer3_params = sum(p.numel() for p in model.layer3.parameters())
-    cbam3_params = sum(p.numel() for p in model.cbam3.parameters())
-    block3_params = sum(p.numel() for p in model.block3_fgw.parameters())
-    branch3_params = layer3_params+cbam3_params+block3_params+conv1_params+bn1_params+layer1_params+layer2_params+avgp_params+last_conv_params
+    # layer3_params = sum(p.numel() for p in model.layer3.parameters())
+    # cbam3_params = sum(p.numel() for p in model.cbam3.parameters())
+    # block3_params = sum(p.numel() for p in model.block3_fgw.parameters())
+    # branch3_params = layer3_params+cbam3_params+block3_params+conv1_params+bn1_params+layer1_params+layer2_params+avgp_params+last_conv_params
 
-    layer4_params = sum(p.numel() for p in model.layer4.parameters())
-    branch4_params = layer4_params+conv1_params+bn1_params+layer1_params+layer2_params+layer3_params+avgp_params+last_conv_params
+    # layer4_params = sum(p.numel() for p in model.layer4.parameters())
+    # branch4_params = layer4_params+conv1_params+bn1_params+layer1_params+layer2_params+layer3_params+avgp_params+last_conv_params
 
-    import torchvision
-    resnet50_vi = torchvision.models.resnet50(pretrained=False)
+    # import torchvision
+    # resnet50_vi = torchvision.models.resnet50(pretrained=False)
 
-    print('resnet50_torchvision params : M', sum(p.numel() for p in resnet50_vi.parameters())/1e6)
+    # print('resnet50_torchvision params : M', sum(p.numel() for p in resnet50_vi.parameters())/1e6)
 
-    print('model params : M', sum(p.numel() for p in model.parameters())/1e6)
-    print(f'branch1_params:{branch1_params/1e6}M,\n\
-          branch2_params:{branch2_params/1e6}M,\n\
-          branch3_params:{branch3_params/1e6}M,\n\
-          resnet50_params:{branch4_params/1e6}M')
+    # print('model params : M', sum(p.numel() for p in model.parameters())/1e6)
+    # print(f'branch1_params:{branch1_params/1e6}M,\n\
+    #       branch2_params:{branch2_params/1e6}M,\n\
+    #       branch3_params:{branch3_params/1e6}M,\n\
+    #       resnet50_params:{branch4_params/1e6}M')
     # for name,params in model.parameters():
     #     if name.startswith('layer1'):
     #         branch1_params.append(params)
