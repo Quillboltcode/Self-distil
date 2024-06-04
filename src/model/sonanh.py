@@ -126,11 +126,7 @@ class SAM(nn.Module):
         out = self.conv(out)
         scale = torch.sigmoid(out)
         return scale * x
-
-
-import torch
-import torch.nn as nn
-
+    
 def conv3x3(in_channels, out_channels, kernel_size=3, stride=1, padding=1):
     return nn.Sequential(
         nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding),
@@ -241,8 +237,7 @@ class Model(nn.Module):
 
 def conv_3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
     """3x3 convolution with padding"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
-                     padding=dilation, groups=groups, bias=False, dilation=dilation)
+    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=dilation, groups=groups, bias=False, dilation=dilation)
 
 
 def conv_1x1(in_planes, out_planes, stride=1):
@@ -254,8 +249,7 @@ class BasicBlock(nn.Module):
     expansion = 1
     __constants__ = ['downsample']
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
-                 base_width=64, dilation=1, norm_layer=None):
+    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,base_width=64, dilation=1, norm_layer=None):
         super(BasicBlock, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
@@ -366,7 +360,7 @@ class ResNet(nn.Module):
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
         self.inplanes = 64
-
+        # self.num_classes = num_classes
         self.dilation = 1
         if replace_stride_with_dilation is None:
             # each element in the tuple indicates if we should replace
@@ -395,16 +389,17 @@ class ResNet(nn.Module):
         self.cbam2 = CBAM(128*self.expans, 128*self.expans)
         self.cbam3 = CBAM(256*self.expans, 256*self.expans)
         # last conv to down to num_classes
-        self.last_conv = conv3x3(512*self.expans, num_classes)
+        # self.last_conv = conv3x3(512*self.expans, num_classes)
         #self.last_conv = nn.Linear(512*self.expans, num_classes)
         # global avg-pooling
         self.avgp = nn.AdaptiveAvgPool2d((1, 1))
 
 
-        self.block1_fgw = nn.Sequential(Block(64*self.expans, 128*self.expans), Block(128*self.expans, 256*self.expans), Block(256*self.expans, 512*self.expans, keep_dim=False))
-        self.block2_fgw = nn.Sequential(Block(128*self.expans, 256*self.expans), Block(256*self.expans, 512*self.expans, keep_dim=False))
-        self.block3_fgw = nn.Sequential(Block(256*self.expans, 512*self.expans, keep_dim=False))
-
+        self.block1_fgw = nn.Sequential(Block(64*self.expans, 128*self.expans), Block(128*self.expans, 256*self.expans), Block(256*self.expans, 512*self.expans, keep_dim=False), Block(512*self.expans, 1024*self.expans, keep_dim=False))
+        self.block2_fgw = nn.Sequential(Block(128*self.expans, 256*self.expans), Block(256*self.expans, 512*self.expans, keep_dim=False), Block(512*self.expans, 1024*self.expans, keep_dim=False))
+        self.block3_fgw = nn.Sequential(Block(256*self.expans, 512*self.expans, keep_dim=False), Block(512*self.expans, 1024*self.expans, keep_dim=False))
+        self.last_conv = conv3x3(4096, num_classes)
+        self.last_conv_4 = conv3x3(2048, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -446,26 +441,36 @@ class ResNet(nn.Module):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        print(x.size())
+        print("x after nor: {0}". format(x.size()))
 
         x = self.layer1(x)
+        print("x after layer1: {0}". format(x.size()))
         out1 = x
         out1 = self.cbam1(out1)
+        print("x after cbam1: {0}". format(out1.size()))
         out1 = self.block1_fgw(out1)
+        print("x after block1: {0}". format(out1.size()))
         # Final convolution and pooling
         out1 = self.last_conv(out1)
+        print("x after last_conv: {0}". format(out1.size()))
         out1 = self.avgp(out1)
+        print("x after avgp: {0}". format(out1.size()))
         out1 = out1.view((out1.shape[0], -1))
-
+        print("x after flat: {0}". format(out1.size()))
+        
         x = self.layer2(x)
+        print("x after layer2: {0}". format(x.size()))
         out2 = x
         out2 = self.cbam2(out2)
         out2 = self.block2_fgw(out2)
+        print("x after block2: {0}". format(out2.size()))
         # Final convolution and pooling
         out2 = self.last_conv(out2)
+        print("x after last_conv: {0}". format(out2.size()))
         out2 = self.avgp(out2)
         out2 = out2.view((out2.shape[0], -1))
-
+        print("x after flat: {0}". format(out2.size()))
+        
         x = self.layer3(x)
         out3 = x
         out3 = self.cbam3(out3)
@@ -477,8 +482,9 @@ class ResNet(nn.Module):
 
         x = self.layer4(x)
         out4 = x
+        # print("x after layer1: {0}". format(out4.size()))
         # Final convolution and pooling
-        out4 = self.last_conv(out4)
+        out4 = self.last_conv_4(out4)
         out4 = self.avgp(out4)
         out4 = out4.view((out4.shape[0], -1))
 
@@ -487,9 +493,9 @@ class ResNet(nn.Module):
 def _resnet(arch, block, layers, pretrained, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
     if pretrained:
-        state_dict = load_state_dict_from_url(model_urls[arch],
-                                              progress=progress)
-        model.load_state_dict(state_dict)
+        # state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
+        # model.load_state_dict(state_dict)
+        pass
     return model
 
 
@@ -524,8 +530,9 @@ def count_bn_params(model):
     return 
 
 if __name__ == '__main__':
-    model = resnet50(pretrained=False)
-
+    model = resnet50()
+    x = torch.rand(1, 3, 32, 32)
+    output = model(x)
     
     # conv1_params = sum(p.numel() for p in model.conv1.parameters())
     # bn1_params = sum(p.numel() for p in model.bn1.parameters())
